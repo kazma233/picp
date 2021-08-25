@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>朋友圈宣传图生成器</title>
+    <link rel="stylesheet" type="text/css" href="css/element-plus/index.css">
+</head>
+<body>
+
+<div id="app" style="margin-top: 40px">
+
+    <el-row>
+        <el-col :offset="1" :span="22">
+            <el-form>
+                <el-form-item label="底图：">
+                    <el-upload
+                            name="file"
+                            accept="image/*"
+                            action="/file"
+                            :limit="1"
+                            :auto-upload="true"
+                            :on-success="baseUploadSuccess"
+                            :on-exceed="handleExceed"
+                    >
+                        <el-button size="small" type="primary">上传底图</el-button>
+                    </el-upload>
+                </el-form-item>
+            </el-form>
+        </el-col>
+    </el-row>
+
+    <el-divider></el-divider>
+
+    <el-row>
+        <el-col :offset="1" :span="13">
+            <el-form inline label-position="right" size="small" v-for="(item,index) in postData.infos"
+                     :key="index">
+                <div v-if="item.type=='text'">
+                    <el-form-item label="水印文字：">
+                        <el-input v-model="item.word"></el-input>
+                    </el-form-item>
+                    <el-form-item label="X位置：">
+                        <el-input-number v-model="item.x"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="Y位置：">
+                        <el-input-number v-model="item.y"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="字重：">
+                        <el-select v-model="item.font" placeholder="请选择">
+                            <el-option
+                                    v-for="item in options"
+                                    :key="item.value"
+                                    :label="item.label"
+                                    :value="item.value">
+                            </el-option>
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="字体大小：">
+                        <el-input-number v-model="item.size" :min="1" :max="150"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="字体颜色：">
+                        <el-color-picker v-model="item.color"></el-color-picker>
+                    </el-form-item>
+                    <el-form-item label="dpi：">
+                        <el-input-number v-model="item.dpi" :min="50" :max="500"></el-input-number>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="danger" icon="el-icon-delete" circle
+                                   @click="deleteModule(item, index)"></el-button>
+                    </el-form-item>
+                </div>
+                <div v-if="item.type=='img'">
+                    <el-upload
+                            name="file"
+                            accept="image/*"
+                            action="/file"
+                            :limit="1"
+                            :auto-upload="false"
+                            :on-success="uploadSuccess"
+                            :on-error="uploadError"
+                            :on-progress="uploadProgress"
+                            :disabled="uploadDisable"
+                            :ref="`upload-${index}`"
+                            :on-exceed="handleExceed"
+                    >
+                        <template #trigger>
+                            <el-button size="small" type="primary">点击选择水印图片</el-button>
+                        </template>
+                        <el-button size="small" type="success" @click="submitUpload(item, index)">
+                            上传到服务器
+                        </el-button>
+                    </el-upload>
+                    <el-form-item label="X位置：">
+                        <el-input-number v-model="item.x"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="Y位置：">
+                        <el-input-number v-model="item.y"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="透明度：">
+                        <el-input-number v-model="item.opacity" :min="0" :max="1" :step="0.01"></el-input-number>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="danger" icon="el-icon-delete" circle
+                                   @click="deleteModule(item, index)"></el-button>
+                    </el-form-item>
+                </div>
+
+                <el-divider></el-divider>
+            </el-form>
+        </el-col>
+
+        <el-col :offset="1" :span="8">
+            <el-affix :offset="70">
+                <el-button size="small" type="primary" @click="makeImg">提交</el-button>
+                <el-button size="small" type="primary" @click="loadData">读取数据</el-button>
+                <el-button size="small" type="primary" @click="saveData">存储数据</el-button>
+                <el-button size="small" type="primary" @click="downloadLog">下载日志</el-button>
+                <el-button size="small" type="primary" @click="downloadImg">下载图片</el-button>
+            </el-affix>
+            <el-affix :offset="120">
+                <el-image :src="url" fit="contain"></el-image>
+            </el-affix>
+        </el-col>
+    </el-row>
+
+    <el-row>
+        <el-col :offset="1" :span="22">
+            <el-button type="primary" @click="addText">新增文字位置</el-button>
+            <el-button type="success" @click="addImg">新增图片位置</el-button>
+        </el-col>
+    </el-row>
+
+</div>
+
+</body>
+
+<script src="js/vue/vue.global.js" type="application/javascript"></script>
+<script src="js/element-plus/index.full.js" type="application/javascript"></script>
+<script src="js/axios/axios.min.js" type="application/javascript"></script>
+
+<script type="application/javascript">
+    const baseImg = "/file/"
+
+    const app = Vue.createApp({
+        data() {
+            return {
+                postData: {
+                    infos: [],
+                    origin: ""
+                },
+                url: "",
+                uploadDisable: false,
+                currentItem: {},
+                options: [{
+                    value: 'Heavy',
+                    label: 'Heavy'
+                }, {
+                    value: 'Bold',
+                    label: 'Bold'
+                }, {
+                    value: 'Regular',
+                    label: 'Regular'
+                }, {
+                    value: 'Medium',
+                    label: 'Medium'
+                }],
+            }
+        },
+        methods: {
+            makeImg() {
+                console.log(this.postData);
+                const _this = this
+                axios.post('/mark', this.postData)
+                    .then(function (response) {
+                        console.log(response);
+                        _this.url = baseImg + response.data;
+                    })
+                    .catch(function (error) {
+                        this.$message.warning("处理失败");
+                    });
+            },
+            addText() {
+                this.postData.infos.push({
+                    "type": "text",
+                    "word": "",
+                    "x": 0,
+                    "y": 0,
+                    "size": 65,
+                    "font": "Regular",
+                    "color": "#000000",
+                    "dpi": 100,
+                })
+            },
+            addImg() {
+                this.postData.infos.push({
+                    "type": "img",
+                    "x": 0,
+                    "y": 0,
+                    "waterMask": "",
+                    "opacity": 1
+                })
+            },
+            uploadSuccess(response, file, fileList) {
+                console.log(response, file, fileList)
+                this.currentItem.waterMask = response;
+            },
+            uploadError(err, file, fileList) {
+                console.log(err, file, fileList)
+            },
+            uploadProgress(event, file, fileList) {
+            },
+            submitUpload(item, index) {
+                const ref = this.$refs[`upload-${index}`]
+                if (ref && ref.uploadFiles.length === 1) {
+                    this.uploadDisable = true;
+                    this.currentItem = item;
+                    ref.submit();
+                }
+            },
+            handleExceed(files, fileList) {
+                this.$message.warning("当前限制选择 1 个文件，请移除当前文件后重新上传");
+            },
+            baseUploadSuccess(response, file, fileList) {
+                this.postData.origin = response;
+                this.url = baseImg + response;
+            },
+            loadData() {
+                if (localStorage.postData) {
+                    this.postData = JSON.parse(localStorage.postData);
+                }
+                if (localStorage.url) {
+                    this.url = localStorage.url;
+                }
+            },
+            saveData() {
+                localStorage.postData = JSON.stringify(this.postData);
+                localStorage.url = this.url;
+            },
+            deleteModule(item, index) {
+                this.postData.infos.splice(index, 1)
+            },
+            downloadLog() {
+
+            },
+            downloadImg() {
+                window.open(this.url);
+            }
+        }
+    });
+    app.use(ElementPlus);
+    app.mount('#app');
+</script>
+
+</html>
