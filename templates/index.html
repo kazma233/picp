@@ -1,145 +1,134 @@
 <!doctype html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>朋友圈宣传图生成器</title>
+    <title>水印生成器</title>
     <link rel="stylesheet" type="text/css" href="css/element-plus/index.css">
 </head>
+
 <body>
 
-<div id="app" style="margin-top: 40px">
+    <div id="app" style="margin-top: 40px">
 
-    <el-row>
-        <el-col :offset="1" :span="22">
-            <el-form>
-                <el-form-item label="底图：">
-                    <el-upload
-                            name="file"
-                            accept="image/*"
-                            action="/file"
-                            :limit="1"
-                            :auto-upload="true"
-                            :on-success="baseUploadSuccess"
-                            :on-exceed="handleExceed"
-                    >
-                        <el-button size="small" type="primary">上传底图</el-button>
-                    </el-upload>
-                </el-form-item>
-            </el-form>
-        </el-col>
-    </el-row>
+        <el-row>
+            <el-col :offset="1" :span="22">
+                <el-form>
+                    <el-form-item label="底图：">
+                        <el-upload name="file" accept="image/*" action="/file" :limit="1" :auto-upload="true"
+                            :on-success="baseUploadSuccess" :on-exceed="handleExceed">
+                            <el-button size="small" type="primary">上传底图</el-button>
+                        </el-upload>
+                    </el-form-item>
+                    <el-form-item label="读取批量数据：">
+                        <el-upload accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" action="/"
+                            :limit="1" :auto-upload="false" :on-change="excelBeforeUpload">
+                            <el-button size="small" type="primary">上传excel</el-button>
+                        </el-upload>
+                    </el-form-item>
+                </el-form>
+            </el-col>
+        </el-row>
 
-    <el-divider></el-divider>
+        <el-divider></el-divider>
 
-    <el-row>
-        <el-col :offset="1" :span="13">
-            <el-form inline label-position="right" size="small" v-for="(item,index) in postData.infos"
-                     :key="index">
-                <div v-if="item.type=='text'">
-                    <el-form-item label="水印文字：">
-                        <el-input v-model="item.word"></el-input>
-                    </el-form-item>
-                    <el-form-item label="X位置：">
-                        <el-input-number v-model="item.x"></el-input-number>
-                    </el-form-item>
-                    <el-form-item label="Y位置：">
-                        <el-input-number v-model="item.y"></el-input-number>
-                    </el-form-item>
-                    <el-form-item label="字重：">
-                        <el-select v-model="item.font" placeholder="请选择">
-                            <el-option
-                                    v-for="item in options"
-                                    :key="item.value"
-                                    :label="item.label"
+        <el-row>
+            <el-col :offset="1" :span="13">
+                <el-form inline label-position="right" size="small" v-for="(item,index) in postData.infos" :key="index">
+                    <div v-if="item.type=='text'">
+                        <el-form-item label="水印文字：">
+                            <el-input v-model="item.word"></el-input>
+                        </el-form-item>
+                        <el-form-item label="X位置：">
+                            <el-input-number v-model="item.x"></el-input-number>
+                        </el-form-item>
+                        <el-form-item label="Y位置：">
+                            <el-input-number v-model="item.y"></el-input-number>
+                        </el-form-item>
+                        <el-form-item label="字重：">
+                            <el-select v-model="item.font" placeholder="请选择">
+                                <el-option v-for="item in options" :key="item.value" :label="item.label"
                                     :value="item.value">
-                            </el-option>
-                        </el-select>
-                    </el-form-item>
-                    <el-form-item label="字体大小：">
-                        <el-input-number v-model="item.size" :min="1" :max="150"></el-input-number>
-                    </el-form-item>
-                    <el-form-item label="字体颜色：">
-                        <el-color-picker v-model="item.color"></el-color-picker>
-                    </el-form-item>
-                    <el-form-item label="dpi：">
-                        <el-input-number v-model="item.dpi" :min="50" :max="500"></el-input-number>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="danger" icon="el-icon-delete" circle
-                                   @click="deleteModule(item, index)"></el-button>
-                    </el-form-item>
-                </div>
-                <div v-if="item.type=='img'">
-                    <el-upload
-                            name="file"
-                            accept="image/*"
-                            action="/file"
-                            :limit="1"
-                            :auto-upload="false"
-                            :on-success="uploadSuccess"
-                            :on-error="uploadError"
-                            :on-progress="uploadProgress"
-                            :disabled="uploadDisable"
-                            :ref="`upload-${index}`"
-                            :on-exceed="handleExceed"
-                    >
-                        <template #trigger>
-                            <el-button size="small" type="primary">点击选择水印图片</el-button>
-                        </template>
-                        <el-button size="small" type="success" @click="submitUpload(item, index)">
-                            上传到服务器
-                        </el-button>
-                    </el-upload>
-                    <el-form-item label="X位置：">
-                        <el-input-number v-model="item.x"></el-input-number>
-                    </el-form-item>
-                    <el-form-item label="Y位置：">
-                        <el-input-number v-model="item.y"></el-input-number>
-                    </el-form-item>
-                    <el-form-item label="透明度：">
-                        <el-input-number v-model="item.opacity" :min="0" :max="1" :step="0.01"></el-input-number>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="danger" icon="el-icon-delete" circle
-                                   @click="deleteModule(item, index)"></el-button>
-                    </el-form-item>
-                </div>
+                                </el-option>
+                            </el-select>
+                        </el-form-item>
+                        <el-form-item label="字体大小：">
+                            <el-input-number v-model="item.size" :min="1" :max="150"></el-input-number>
+                        </el-form-item>
+                        <el-form-item label="字体颜色：">
+                            <el-color-picker v-model="item.color"></el-color-picker>
+                        </el-form-item>
+                        <el-form-item label="dpi：">
+                            <el-input-number v-model="item.dpi" :min="50" :max="500"></el-input-number>
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="danger" icon="el-icon-delete" circle @click="deleteModule(item, index)">
+                            </el-button>
+                        </el-form-item>
+                    </div>
+                    <div v-if="item.type=='img'">
+                        <el-upload name="file" accept="image/*" action="/file" :limit="1" :auto-upload="false"
+                            :on-success="uploadSuccess" :on-error="uploadError" :on-progress="uploadProgress"
+                            :disabled="uploadDisable" :ref="`upload-${index}`" :on-exceed="handleExceed">
+                            <template #trigger>
+                                <el-button size="small" type="primary">点击选择水印图片</el-button>
+                            </template>
+                            <el-button size="small" type="success" @click="submitUpload(item, index)">
+                                上传到服务器
+                            </el-button>
+                        </el-upload>
+                        <el-form-item label="X位置：">
+                            <el-input-number v-model="item.x"></el-input-number>
+                        </el-form-item>
+                        <el-form-item label="Y位置：">
+                            <el-input-number v-model="item.y"></el-input-number>
+                        </el-form-item>
+                        <el-form-item label="透明度：">
+                            <el-input-number v-model="item.opacity" :min="0" :max="1" :step="0.01"></el-input-number>
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button type="danger" icon="el-icon-delete" circle @click="deleteModule(item, index)">
+                            </el-button>
+                        </el-form-item>
+                    </div>
 
-                <el-divider></el-divider>
-            </el-form>
-        </el-col>
+                    <el-divider></el-divider>
+                </el-form>
+            </el-col>
 
-        <el-col :offset="1" :span="8">
-            <el-affix :offset="70">
-                <el-button size="small" type="primary" @click="makeImg">提交</el-button>
-                <el-button size="small" type="primary" @click="loadData">读取数据</el-button>
-                <el-button size="small" type="primary" @click="saveData">存储数据</el-button>
-                <el-button size="small" type="primary" @click="downloadLog">下载日志</el-button>
-                <el-button size="small" type="primary" @click="downloadImg">下载图片</el-button>
-            </el-affix>
-            <el-affix :offset="120">
-                <el-image :src="url" fit="contain"></el-image>
-            </el-affix>
-        </el-col>
-    </el-row>
+            <el-col :offset="1" :span="8">
+                <el-affix :offset="70">
+                    <el-button size="small" type="primary" @click="makeImg">提交</el-button>
+                    <el-button size="small" type="primary" @click="loadData">读取数据</el-button>
+                    <el-button size="small" type="primary" @click="saveData">存储数据</el-button>
+                    <el-button size="small" type="primary" @click="downloadHighLog">下载日志（High）</el-button>
+                    <el-button size="small" type="primary" @click="downloadLowLog">下载日志（Low）</el-button>
+                    <el-button size="small" type="primary" @click="downloadImg">下载图片</el-button>
+                </el-affix>
+                <el-affix :offset="120">
+                    <el-image :src="url" fit="contain"></el-image>
+                </el-affix>
+            </el-col>
+        </el-row>
 
-    <el-row>
-        <el-col :offset="1" :span="22">
-            <el-button type="primary" @click="addText">新增文字位置</el-button>
-            <el-button type="success" @click="addImg">新增图片位置</el-button>
-        </el-col>
-    </el-row>
+        <el-row>
+            <el-col :offset="1" :span="22">
+                <el-button type="primary" @click="addText">新增文字位置</el-button>
+                <el-button type="success" @click="addImg">新增图片位置</el-button>
+            </el-col>
+        </el-row>
 
-</div>
+    </div>
 
 </body>
 
 <script src="js/vue/vue.global.js" type="application/javascript"></script>
 <script src="js/element-plus/index.full.js" type="application/javascript"></script>
 <script src="js/axios/axios.min.js" type="application/javascript"></script>
+<script src="js/excel/exceljs.min.js" type="application/javascript"></script>
 
 <script type="application/javascript">
     const baseImg = "/file/"
@@ -155,17 +144,26 @@
                 uploadDisable: false,
                 currentItem: {},
                 options: [{
-                    value: 'Heavy',
-                    label: 'Heavy'
-                }, {
-                    value: 'Bold',
+                    value: 0,
                     label: 'Bold'
                 }, {
-                    value: 'Regular',
-                    label: 'Regular'
+                    value: 1,
+                    label: 'ExtraLight'
                 }, {
-                    value: 'Medium',
+                    value: 2,
+                    label: 'Heavy'
+                }, {
+                    value: 3,
+                    label: 'Light'
+                }, {
+                    value: 4,
                     label: 'Medium'
+                }, {
+                    value: 5,
+                    label: 'Normal'
+                }, {
+                    value: 6,
+                    label: 'Regular'
                 }],
             }
         },
@@ -189,7 +187,7 @@
                     "x": 0,
                     "y": 0,
                     "size": 65,
-                    "font": "Regular",
+                    "font": 6,
                     "color": "#000000",
                     "dpi": 100,
                 })
@@ -240,13 +238,29 @@
                 localStorage.url = this.url;
             },
             deleteModule(item, index) {
-                this.postData.infos.splice(index, 1)
+                this.postData.infos.splice(index, 1);
             },
-            downloadLog() {
-
+            downloadHighLog() {
+                window.open("/log/high");
+            },
+            downloadLowLog() {
+                window.open("/log/low");
             },
             downloadImg() {
                 window.open(this.url);
+            },
+            async excelBeforeUpload(f) {
+                console.log(f);
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(f.raw);
+                if (workbook.worksheets && workbook.worksheets.length > 0) {
+                    const worksheet = workbook.worksheets[0];
+                    worksheet.eachRow(function (row, rowNumber) {
+                        row.values.forEach(element => {
+                            // TODO
+                        }); 
+                    });
+                }
             }
         }
     });

@@ -1,19 +1,74 @@
-package utils
+package main
 
 import (
-	"image"
-	"picp/entity"
-
 	"github.com/disintegration/imaging"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+	"image"
+	"image/color"
 )
 
+type (
+	Shape struct {
+		Width int
+		High  int
+	}
 
+	Box struct {
+		Shape
+		image.Point
+	}
+
+	ColorPoint struct {
+		X int
+		Y int
+		C color.Color
+	}
+
+	ColorBox struct {
+		Width int
+		High  int
+		image.Point
+		color.Color
+	}
+)
+
+type (
+	WordMaskPreInfo struct {
+		Word string         // 文字水印的文字
+		Font *opentype.Font // 字体
+		Size float64        // 文字大小
+		Dpi  float64        // DPI
+	}
+
+	WordMaskInfo struct {
+		BgImg      image.Image // 背景图
+		Word       string      // 文字
+		ColorPoint             // 颜色 位置
+	}
+
+	WordMaskCenterInfo struct {
+		BgImg image.Image // 背景图
+		Word  string      // 文字
+		C     color.Color
+		Width int
+		Y     int
+		Font  *opentype.Font
+		Size  float64
+		Dpi   float64
+	}
+)
+
+type (
+	WriteColorInfo struct {
+		BgImage      image.Image // 底图
+		ColorBoxInfo ColorBox    // 长宽 位置 颜色
+	}
+)
 
 // WriteColorMask 在图片上填满色块
-func WriteColorMask(info entity.WriteColorInfo) image.Image {
+func WriteColorMask(info WriteColorInfo) image.Image {
 	return imaging.Paste(
 		info.BgImage,
 		imaging.New(info.ColorBoxInfo.Width, info.ColorBoxInfo.High, info.ColorBoxInfo.Color),
@@ -22,7 +77,7 @@ func WriteColorMask(info entity.WriteColorInfo) image.Image {
 }
 
 // PreWordMask 获取文字水印
-func PreWordMask(info entity.WordMaskPreInfo) (font.Face, error) {
+func PreWordMask(info WordMaskPreInfo) (font.Face, error) {
 	return opentype.NewFace(info.Font, &opentype.FaceOptions{
 		Size:    info.Size,
 		DPI:     info.Dpi,
@@ -31,7 +86,7 @@ func PreWordMask(info entity.WordMaskPreInfo) (font.Face, error) {
 }
 
 // WriteWordMask 写文字水印
-func WriteWordMask(face font.Face, info entity.WordMaskInfo) (image.Image, error) {
+func WriteWordMask(face font.Face, info WordMaskInfo) (image.Image, error) {
 	drawer := font.Drawer{Face: face}
 
 	bgImg := info.BgImg
@@ -46,9 +101,9 @@ func WriteWordMask(face font.Face, info entity.WordMaskInfo) (image.Image, error
 }
 
 // WriteFontCenter 写出文字（中间）
-func WriteFontCenter(info entity.WordMaskCenterInfo) (image.Image, error) {
+func WriteFontCenter(info WordMaskCenterInfo) (image.Image, error) {
 	fontFace, err := PreWordMask(
-		entity.WordMaskPreInfo{
+		WordMaskPreInfo{
 			Word: info.Word,
 			Font: info.Font,
 			Size: info.Size,
@@ -66,10 +121,10 @@ func WriteFontCenter(info entity.WordMaskCenterInfo) (image.Image, error) {
 	w := (info.Width - fSize.Floor()) / 2
 	wordMaskImage, err := WriteWordMask(
 		fontFace,
-		entity.WordMaskInfo{
+		WordMaskInfo{
 			BgImg: info.BgImg,
 			Word:  info.Word,
-			ColorPoint: entity.ColorPoint{
+			ColorPoint: ColorPoint{
 				C: info.C,
 				X: w,
 				Y: info.Y,
