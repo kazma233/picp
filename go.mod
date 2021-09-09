@@ -3,6 +3,7 @@ module picp
 go 1.17
 
 require (
+	github.com/allegro/bigcache v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/gin-gonic/gin v1.7.4
 	github.com/natefinch/lumberjack v2.0.0+incompatible

@@ -2,9 +2,7 @@ package main
 
 import (
 	"image"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"picp/entity"
 
 	"github.com/disintegration/imaging"
@@ -14,6 +12,7 @@ import (
 
 func main() {
 	logx := NewSugaredLogger()
+	ic := NewImageCache()
 
 	g := gin.Default()
 	g.HandleMethodNotAllowed = true
@@ -24,41 +23,39 @@ func main() {
 
 	fg := g.Group("/file")
 	fg.POST("", func(context *gin.Context) {
-		f, err := context.FormFile("file")
+		fh, err := context.FormFile("file")
 		if err != nil {
 			logx.Errorf("解析文件错误: %v", err)
 			context.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
-		fn := xid.New().String()
-		err = context.SaveUploadedFile(f, TmpDir+fn)
+		f, err := fh.Open()
 		if err != nil {
-			logx.Errorf("保存文件错误: %v", err)
-			context.AbortWithStatus(http.StatusInternalServerError)
+			logx.Errorf("打开文件错误: %v", err)
+			context.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
+
+		img, err := imaging.Decode(f)
+		if err != nil {
+			logx.Errorf("打开图片文件错误: %v", err)
+			context.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		// save
+		fn := xid.New().String()
+		ic.SetImageMust(fn, img)
 
 		context.String(http.StatusOK, "%s", fn)
 	})
 
 	fg.GET("/:fileId", func(context *gin.Context) {
 		fId := context.Param("fileId")
-		f, err := os.OpenFile(TmpDir+fId, os.O_RDONLY, 0755)
-		if err != nil {
-			logx.Errorf("文件打开错误: %v", err)
-			context.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
 
-		fs, err := ioutil.ReadAll(f)
-		if err != nil {
-			logx.Errorf("文件读取错误: %v", err)
-			context.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-
-		context.Data(http.StatusOK, "image/jpeg", fs)
+		bf := ic.GetBufferMust(fId)
+		context.Data(http.StatusOK, "image/png", bf.Bytes())
 	})
 
 	g.POST("/mark", func(context *gin.Context) {
@@ -69,12 +66,7 @@ func main() {
 		}
 		logx.Infof("mark info: %v", addMask)
 
-		origin, err := imaging.Open(TmpDir + addMask.Origin)
-		if err != nil {
-			logx.Errorf("打开原文件异常: %v", err)
-			context.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
+		origin := ic.GetImageMust(addMask.Origin)
 
 		for _, mask := range addMask.Infos {
 			if mask.Type == "text" {
@@ -101,24 +93,13 @@ func main() {
 			}
 
 			if mask.Type == "img" {
-				waterMask, err := imaging.Open(TmpDir + mask.WaterMask)
-				if err != nil {
-					logx.Errorf("打开水印文件异常：%v", err)
-					break
-				}
-
+				waterMask := ic.GetImageMust(mask.WaterMask)
 				origin = imaging.Overlay(origin, waterMask, image.Pt(mask.X, mask.Y), mask.Opacity)
 			}
-
 		}
 
-		fn := xid.New().String() + ".jpg"
-		err = imaging.Save(origin, TmpDir+fn)
-		if err != nil {
-			logx.Errorf("保存文件异常：%v", err)
-			context.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
+		fn := xid.New().String()
+		ic.SetImageMust(fn, origin)
 
 		context.String(http.StatusOK, "%v", fn)
 	})
